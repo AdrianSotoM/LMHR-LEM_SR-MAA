@@ -1,0 +1,615 @@
+################################################################################
+################################################################################
+################################################################################
+##### SET-UP #####
+#Data available at https://github.com/AdrianSotoM
+#Please, address all correspondence about this code to adrian.sotom@incmnsz.mx
+
+#Working directory setup
+setwd("C:/Users/adria/Dropbox/UIEM/LEAD/Proyectos/srldlbmi")
+
+# Now, confirm you have "pacman" installed. If you don't have "pacman" but want
+# to install it, remove the # in the line below and press "Enter".
+# install.packages("pacman") 
+
+#Packages setup
+pacman::p_load(dplyr,tidyr,ggstatsplot,readxl,easystats,
+               patchwork,MASS,see,performance,
+               gtools,broom,report,meta,plot3D,plot3Drgl,
+               parameters,ggcharts,conflicted,metafor)
+
+#Solving duplicate functions conflicts
+conflict_prefer("select","dplyr")
+conflict_prefer("filter", "dplyr")
+
+#Data upload
+data <- read_excel("data.xlsx")
+
+normal <- data %>% filter(bmicat=="normal")
+overweight <- data %>% filter(bmicat=="overweight")
+obesity1 <- data %>% filter(bmicat=="obesity1")
+obesity2 <- data %>% filter(bmicat=="obesity2")
+obesity3 <- data %>% filter(bmicat=="obesity3")
+
+################################################################################
+##### META-ANALYSIS DESCRIPTIVE STATISTICS #####
+### TOTAL N ###
+sum(data$n)
+
+### MEAN FOLLOW-UP TIME ###
+mean(data$weeks)
+
+### NUMBER OF RCTS WITHOUT SATURATED-FAT INTAKE DATA ###
+sum(is.na(data$satfatg))
+
+### NUMBER OF RCTS WITHOUT WEIGHT-LOSS DATA ###
+sum(is.na(data$wghtlosskg))
+################################################################################
+##### META-REGRESSION #####
+MAmod<-rma(yi=data$ldldiffch, vi=data$ldldiffchse, 
+           mods=~data$bmi+data$chogr+data$satfatg+data$wghtlosskg,
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+summary.rma(MAmod)
+suppfig1a <- funnel(MAmod)
+regtest(MAmod, model="lm")
+fsn(data$ldldiffch, vi=data$ldldiffchse,type = "Rosenthal")
+
+##### META-REGRESSION PLOT #####
+fig3a <- ggplot(data=data,mapping = aes(x=bmi,y=ldldiffch))+
+  geom_smooth(method='auto', se=TRUE, fullrange=FALSE, level=0.95,
+              inherit.aes = TRUE,color="black")+
+  xlab("Baseline BMI") +
+  ylab("LDL change (mg/dL)")+
+  ggtitle("A) All eligible RCTs")+
+  ggplot2::scale_y_continuous(
+    limits = c(-30,80),
+    breaks = seq(-30, 80, by= 10))+
+  ggplot2::scale_x_continuous(
+    limits = c(20,40),
+    breaks = seq(20, 40, by= 5))+ theme_classic()+
+  ggplot2::theme(plot.title = element_text(size=12,face = "bold"),
+                 plot.title.position = "plot",
+                 plot.margin = margin(1,1,1,1,unit="cm"),
+                 axis.line = element_line(color = "black",size = 1, linetype = "solid"),
+                 axis.title.y = element_text(size=12,colour = "black",face="bold",margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(size=12,colour = "black",face="bold",margin = margin(t=1,unit="cm")),
+                 axis.text = element_text(size=12,colour = "black",face="bold", margin = margin(t=1,r=1,unit="cm")),
+                 plot.subtitle = element_text(size=12,colour = "black",hjust = 0.5,margin = margin(b=1,t=1,unit="cm")),
+                 plot.caption = element_text(size=12,colour="gray40",face="bold.italic",hjust = 1,margin = margin(t=0.5,unit="cm"))
+  ) + coord_cartesian(expand = T) 
+fig3a
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH NORMAL BMI #####
+MAnlwt<-rma(yi=normal$ldldiffch, vi=normal$ldldiffchse, 
+            method="REML",
+            weighted=TRUE, 
+            level=95, 
+            digits=4)
+summary(MAnlwt)
+regtest(MAnlwt, model="lm")
+leave1out(MAnlwt)
+fsn(normal$ldldiffch, vi=normal$ldldiffchse,type = "Rosenthal")
+
+forest(MAnlwt,slab=paste(normal$author,normal$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(normal$bmi),showweights = T,
+       header="A) LDL change in RCTs involving participants with a mean BMI < 25")
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OVERWEIGHT #####
+MAovrwt<-rma(yi=overweight$ldldiffch, vi=overweight$ldldiffchse,  
+             method="REML",
+             weighted=TRUE, 
+             level=95, 
+             digits=4)
+
+regtest(MAovrwt, model="lm")
+leave1out(MAovrwt)
+
+forest(MAovrwt,slab=paste(overweight$author,overweight$year,sep=", "),
+                xlab = "Change in LDL (mg/dL)",order=order(overweight$bmi),showweights = T,
+                header="B) LDL change in RCTs involving participants with a mean BMI between 25 - 30",)
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OBESITY CLASS 1 #####
+MAob1<-rma(yi=obesity1$ldldiffch, vi=obesity1$ldldiffchse, 
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+
+regtest(MAob1, model="lm")
+leave1out(MAob1)
+
+forest(MAob1,slab=paste(obesity1$author,obesity1$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(obesity1$bmi),showweights = T,
+       header="C) LDL change in RCTs involving participants with a mean BMI between 30 & 35")
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OBESITY CLASS 2 #####
+MAob2<-rma(yi=obesity2$ldldiffch, vi=obesity2$ldldiffchse, 
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+summary(MAob2)
+regtest(MAob2, model="lm")
+leave1out(MAob2)
+fsn(obesity2$ldldiffch, vi=obesity2$ldldiffchse,type = "Rosenthal")
+
+fig2d <- forest(MAob2,slab=paste(obesity2$author,obesity2$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(obesity2$bmi),showweights = T,
+       header="D) LDL change in RCTs involving participants with a mean BMI > 35")
+
+################################################################################
+################## EXCLUDING TRIALS WITH PATIENTS USING STATINS ################
+################################################################################
+##### REMOVING TRIALS WITH PATIENTS USING STATINS #####
+### Please, note some object names will be overwritten ###
+data2 <- data %>% filter(statinprop==0)
+##### META-ANALYSIS DESCRIPTIVE STATISTICS #####
+### TOTAL N ###
+sum(data2$n)
+
+### MEAN FOLLOW-UP TIME ###
+mean(data2$weeks)
+
+### NUMBER OF RCTS WITHOUT SATURATED-FAT INTAKE data2 ###
+sum(is.na(data2$satfatg))
+
+### NUMBER OF RCTS WITHOUT WEIGHT-LOSS data2 ###
+sum(is.na(data2$wghtlosskg))
+################################################################################
+##### META-REGRESSION #####
+MAmodws<-rma(yi=data2$ldldiffch, vi=data2$ldldiffchse, 
+           mods=~data2$bmi+data2$satfatg+data2$chogr+data2$wghtlosskg,
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+summary(MAmodws)
+suppfig1b <- summary.rma(MAmodws)
+funnel(MAmodws)
+regtest(MAmodws, model="lm")
+fsn(data2$ldldiffch, vi=data2$ldldiffchse,type = "Rosenthal")
+
+##### META-REGRESSION PLOT #####
+fig3b <- ggplot(data=data2,mapping = aes(x=bmi,y=ldldiffch))+
+  geom_smooth(method='auto', se=TRUE, fullrange=FALSE, level=0.95,
+              inherit.aes = TRUE,color="black")+
+  xlab("Baseline BMI") +
+  ylab("LDL change (mg/dL)")+
+  ggtitle("B) Without RCTs Using Statins)")+
+  ggplot2::scale_y_continuous(
+    limits = c(-30,80),
+    breaks = seq(-30, 80, by= 10))+
+  ggplot2::scale_x_continuous(
+    limits = c(20,40),
+    breaks = seq(20, 40, by= 5))+ theme_classic()+
+  ggplot2::theme(plot.title = element_text(size=12,face = "bold"),
+                 plot.title.position = "plot",
+                 plot.margin = margin(1,1,1,1,unit="cm"),
+                 axis.line = element_line(color = "black",size = 1, linetype = "solid"),
+                 axis.title.y = element_text(size=12,colour = "black",face="bold",margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(size=12,colour = "black",face="bold",margin = margin(t=1,unit="cm")),
+                 axis.text = element_text(size=12,colour = "black",face="bold", margin = margin(t=1,r=1,unit="cm")),
+                 plot.subtitle = element_text(size=12,colour = "black",hjust = 0.5,margin = margin(b=1,t=1,unit="cm")),
+                 plot.caption = element_text(size=12,colour="gray40",face="bold.italic",hjust = 1,margin = margin(t=0.5,unit="cm"))
+  ) + coord_cartesian(expand = T)
+fig3b
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH NORMAL BMI #####
+MAnlwt<-rma(yi=normal$ldldiffch, vi=normal$ldldiffchse, 
+            method="REML",
+            weighted=TRUE, 
+            level=95, 
+            digits=4)
+forest(MAnlwt,slab=paste(normal$author,normal$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(normal$bmi),showweights = T,
+       header="A) LDL change in RCTs involving participants with a mean BMI < 25")
+
+regtest(MAnlwt, model="lm")
+leave1out(MAnlwt)
+fsn(normal$ldldiffch, vi=normal$ldldiffchse,type = "Rosenthal")
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OVERWEIGHT #####
+MAovrwt<-rma(yi=overweight$ldldiffch, vi=overweight$ldldiffchse,  
+             method="REML",
+             weighted=TRUE, 
+             level=95, 
+             digits=4)
+forest(MAovrwt,slab=paste(overweight$author,overweight$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(overweight$bmi),showweights = T,
+       header="B) LDL change in RCTs involving participants with a mean BMI between 25 - 30",)
+
+regtest(MAovrwt, model="lm")
+leave1out(MAovrwt)
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OBESITY CLASS 1 #####
+MAob1<-rma(yi=obesity1$ldldiffch, vi=obesity1$ldldiffchse, 
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+forest(MAob1,slab=paste(obesity1$author,obesity1$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(obesity1$bmi),showweights = T,
+       header="C) LDL change in RCTs involving participants with a mean BMI between 30 - 35")
+
+regtest(MAob1, model="lm")
+leave1out(MAob1)
+
+################################################################################
+##### META-ANALYSIS OF RCTS WITH PARTICIPANTS WITH OBESITY CLASS 2 #####
+MAob2<-rma(yi=obesity2$ldldiffch, vi=obesity2$ldldiffchse, 
+           method="REML",
+           weighted=TRUE, 
+           level=95, 
+           digits=4)
+forest(MAob2,slab=paste(obesity2$author,obesity2$year,sep=", "),
+       xlab = "Change in LDL (mg/dL)",order=order(obesity2$bmi),showweights = T,
+       header="D) LDL change in RCTs involving participants with a mean BMI > 35")
+
+regtest(MAob2, model="lm")
+leave1out(MAob2)
+fsn(obesity2$ldldiffch, vi=obesity2$ldldiffchse,type = "Rosenthal")
+
+################################################################################
+######################### INDIVIDUAL DATA ANALYSES #############################
+################################################################################
+##### WITH CARBOHYDRATE RESTRICTION #####
+dietfits <- read.csv(url("https://osf.io/ztysq/download"))
+ipddietfits <- dietfits %>% filter(diet=="Blue")
+ipddietfits <- ipddietfits %>% mutate(timepoint=case_when(
+  redcap_event_name=="12_months_arm_1"~"12m",
+  redcap_event_name=="6_months_arm_1"~"6m",
+  redcap_event_name=="3_months_arm_1"~"3m",
+  redcap_event_name=="baseline_arm_1"~"Baseline")
+)
+ipddietfitsbl <- ipddietfits %>% filter(timepoint=="Baseline")
+ipddietfits3m <- ipddietfits %>% filter(timepoint=="3m")
+ipddietfits3m <- ipddietfits3m %>% 
+  mutate(ldlchange=ipddietfits3m$lipid_ldl_v2-ipddietfitsbl$lipid_ldl_v2) %>% 
+  mutate(wch=ipddietfits3m$weight_gcrc-ipddietfitsbl$weight_gcrc) %>%
+  mutate(blbmi=ipddietfitsbl$bmi) 
+
+write.csv(ipddietfits3m,file = "ipd1lc.csv")
+ipd1 <- read.csv("ipd1lc.csv")
+ipd1 <- ipd1 %>% select(blbmi,ldlchange,saturated_fat.g,wch)
+ipd2 <- read.csv("ipd2lc.csv")
+ipdlc <- rbind(ipd1,ipd2)
+ipdlc <- ipdlc %>%  mutate(qsatfat=quantcut(saturated_fat.g,4)) %>% 
+  mutate(whocat=case_when(
+    blbmi < 25 ~ "Healthy BMI",
+    blbmi > 25 & blbmi <= 30 ~ "Overweight",
+    blbmi > 30 & blbmi <= 35 ~ "Class 1 Obesity",
+    blbmi > 35 ~ "Class 2 Obesity")) 
+ipdlc$whocat <- factor(ipdlc$whocat, levels = c("Class 1 Obesity","Healthy BMI", "Overweight", "Class 2 Obesity"))
+
+##### Regression plot of IPD in a LCD #####
+fig3c <- ggplot(data=ipdlc, mapping = aes(x=blbmi,y=ldlchange))+
+  geom_smooth(method='auto', se=TRUE, fullrange=FALSE, level=0.95,
+              inherit.aes = TRUE,color="black")+
+  xlab("Baseline BMI") +
+  ylab("LDL change (mg/dL)")+
+  ggtitle("C) IPD With Carbohydrate restriction")+
+  ggplot2::scale_y_continuous(
+    limits = c(-30,80),
+    breaks = seq(-30, 80, by= 10))+
+  ggplot2::scale_x_continuous(
+    limits = c(20,40),
+    breaks = seq(20, 40, by= 5))+ theme_classic()+
+  ggplot2::theme(plot.title = element_text(size=12,face = "bold"),
+                 plot.title.position = "plot",
+                 plot.margin = margin(1,1,1,1,unit="cm"),
+                 axis.line = element_line(color = "black",size = 1, linetype = "solid"),
+                 axis.title.y = element_text(size=12,colour = "black",face="bold",margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(size=12,colour = "black",face="bold",margin = margin(t=1,unit="cm")),
+                 axis.text = element_text(size=12,colour = "black",face="bold", margin = margin(t=1,r=1,unit="cm")),
+                 plot.subtitle = element_text(size=12,colour = "black",hjust = 0.5,margin = margin(b=1,t=1,unit="cm")),
+                 plot.caption = element_text(size=12,colour="gray40",face="bold.italic",hjust = 1,margin = margin(t=0.5,unit="cm"))
+  ) + coord_cartesian(expand = T)
+fig3c
+
+##### Polynomial regression model of IPD with carbohydrate restriction ######
+ipdmdllc <- lm(ldlchange~poly(blbmi,2)+saturated_fat.g,data=ipdlc)
+summary(ipdmdllc)
+confint(ipdmdllc)
+
+##### Model predictions LC #####
+### BMI=20 ###
+lcbmi20sfarda <- data.frame(blbmi=20,saturated_fat.g=16)
+lcp1 <- predict(ipdmdllc,lcbmi20sfarda)
+lcp1
+lcbmi20sfa2rda <- data.frame(blbmi=20,saturated_fat.g=32)
+lcp2 <- predict(ipdmdllc,lcbmi20sfa2rda)
+lcp2
+lcbmi20sfa3rda <- data.frame(blbmi=20,saturated_fat.g=64)
+lcp3 <- predict(ipdmdllc,lcbmi20sfa3rda)
+lcp3
+
+### BMI=25 ###
+lcbmi25sfarda <- data.frame(blbmi=25,saturated_fat.g=16)
+lcp4 <- predict(ipdmdllc,lcbmi25sfarda)
+lcp4
+lcbmi25sfa2rda <- data.frame(blbmi=25,saturated_fat.g=32)
+lcp5 <- predict(ipdmdllc,lcbmi25sfa2rda)
+lcp5
+lcbmi25sfa3rda <- data.frame(blbmi=25,saturated_fat.g=64)
+lcp6 <- predict(ipdmdllc,lcbmi25sfa3rda)
+lcp6
+
+### BMI=30 ###
+lcbmi30sfarda <- data.frame(blbmi=30,saturated_fat.g=16)
+lcp7 <- predict(ipdmdllc,lcbmi30sfarda)
+lcp7
+lcbmi30sfa2rda <- data.frame(blbmi=30,saturated_fat.g=32)
+lcp8 <- predict(ipdmdllc,lcbmi30sfa2rda)
+lcp8
+lcbmi30sfa3rda <- data.frame(blbmi=30,saturated_fat.g=64)
+lcp9 <- predict(ipdmdllc,lcbmi30sfa3rda)
+lcp9
+
+### BMI=35 ###
+lcbmi35sfarda <- data.frame(blbmi=35,saturated_fat.g=16)
+lcp10 <- predict(ipdmdllc,lcbmi35sfarda)
+lcp10
+lcbmi35sfa2rda <- data.frame(blbmi=35,saturated_fat.g=32)
+lcp11 <- predict(ipdmdllc,lcbmi35sfa2rda)
+lcp11
+lcbmi35sfa3rda <- data.frame(blbmi=35,saturated_fat.g=64)
+lcp12 <- predict(ipdmdllc,lcbmi35sfa3rda)
+lcp12
+
+compiledlc <- data.frame(
+  column1 = c(lcp1,lcp2,lcp3),
+  column2 = c(lcp4, lcp5, lcp6),
+  column3 = c(lcp7,lcp8,lcp9),
+  column4 = c(lcp10,lcp11,lcp12)
+)
+colnames(compiledlc) <- c("BMI=20","BMI=25","BMI=30","BMI=35")
+rownames(compiledlc) <- c("RDA","2xRDA","3xRDA")
+
+compiledlc <- data.frame(
+  BMI = c(20,20,20,25,25,25,30,30,30,35,35,35),
+  SFA = c("RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA"),
+  LDLchange = c(c(lcp1,lcp2,lcp3,lcp4,lcp5,lcp6,lcp7,lcp8,lcp9,lcp10,lcp11,lcp12))
+)
+
+write.csv(compiledlc,"predictionslc.csv")
+################################################################################
+##### WITHOUT CARBOHYDRATE RESTRICTION #####
+ipddietfits <- dietfits %>% filter(diet=="Purple")
+ipddietfits <- ipddietfits %>% mutate(timepoint=case_when(
+  redcap_event_name=="12_months_arm_1"~"12m",
+  redcap_event_name=="6_months_arm_1"~"6m",
+  redcap_event_name=="3_months_arm_1"~"3m",
+  redcap_event_name=="baseline_arm_1"~"Baseline")
+)
+ipddietfitsbl <- ipddietfits %>% filter(timepoint=="Baseline")
+ipddietfits3m <- ipddietfits %>% filter(timepoint=="3m")
+ipddietfits3m <- ipddietfits3m %>% 
+  mutate(ldlchange=ipddietfits3m$lipid_ldl_v2-ipddietfitsbl$lipid_ldl_v2) %>% 
+  mutate(wch=ipddietfits3m$weight_gcrc-ipddietfitsbl$weight_gcrc) %>%
+  mutate(blbmi=ipddietfitsbl$bmi)
+
+write.csv(ipddietfits3m,file = "ipd1hc.csv")
+ipd1hc <- read.csv("ipd1hc.csv")
+ipd1hc <- ipd1hc %>% select(blbmi,ldlchange,saturated_fat.g,wch)
+ipd2hc <- read_xlsx("ipd2hc.xlsx")
+ipdhc <- rbind(ipd1hc,ipd2hc)
+ipdhc <- ipdhc %>%  mutate(qsatfat=quantcut(saturated_fat.g,4))%>% 
+  mutate(whocat=case_when(
+    blbmi < 25 ~ "Healthy BMI",
+    blbmi > 25 & blbmi <= 30 ~ "Overweight",
+    blbmi > 30 & blbmi <= 35 ~ "Class 1 Obesity",
+    blbmi > 35 ~ "Class 2 Obesity")) 
+ipdhc$whocat <- factor(ipdhc$whocat, levels = c("Class 1 Obesity","Healthy BMI", "Overweight", "Class 2 Obesity"))
+
+##### Regression plot of IPD in a LCD #####
+fig3d <- ggplot(data=ipdhc, mapping = aes(x=blbmi,y=ldlchange))+
+  geom_smooth(method='auto', se=TRUE, fullrange=FALSE, level=0.95,
+              inherit.aes = TRUE,color="black")+
+  xlab("Baseline BMI") +
+  ylab("LDL change (mg/dL)")+
+  ggtitle("D) IPD Without Carbohydrate Restriction")+
+  ggplot2::scale_y_continuous(
+    limits = c(-30,80),
+    breaks = seq(-30, 80, by= 10))+
+  ggplot2::scale_x_continuous(
+    limits = c(20,40),
+    breaks = seq(20, 40, by= 5))+ theme_classic()+
+  ggplot2::theme(plot.title = element_text(size=12,face = "bold"),
+                 plot.title.position = "plot",
+                 plot.margin = margin(1,1,1,1,unit="cm"),
+                 axis.line = element_line(color = "black",size = 1, linetype = "solid"),
+                 axis.title.y = element_text(size=12,colour = "black",face="bold",margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(size=12,colour = "black",face="bold",margin = margin(t=1,unit="cm")),
+                 axis.text = element_text(size=12,colour = "black",face="bold", margin = margin(t=1,r=1,unit="cm")),
+                 plot.subtitle = element_text(size=12,colour = "black",hjust = 0.5,margin = margin(b=1,t=1,unit="cm")),
+                 plot.caption = element_text(size=12,colour="gray40",face="bold.italic",hjust = 1,margin = margin(t=0.5,unit="cm"))
+  ) + coord_cartesian(expand = T)
+fig3d
+
+##### Polynomial regression model of IPD without carbohydrate restriction #####
+ipdmdlhc <- lm(ldlchange~poly(blbmi,2)+saturated_fat.g,data=ipdhc)
+summary(ipdmdlhc)
+confint(ipdmdlhc)
+
+##### Model predictions HC #####
+### BMI=20 ###
+hcbmi20sfarda <- data.frame(blbmi=20,saturated_fat.g=16)
+hcp1 <- predict(ipdmdlhc,hcbmi20sfarda)
+hcp1
+hcbmi20sfa2rda <- data.frame(blbmi=20,saturated_fat.g=32)
+hcp2 <- predict(ipdmdlhc,hcbmi20sfa2rda)
+hcp2
+hcbmi20sfa3rda <- data.frame(blbmi=20,saturated_fat.g=64)
+hcp3 <- predict(ipdmdlhc,hcbmi20sfa3rda)
+hcp3
+
+### BMI=25 ###
+hcbmi25sfarda <- data.frame(blbmi=25,saturated_fat.g=16)
+hcp4 <- predict(ipdmdlhc,hcbmi25sfarda)
+hcp4
+hcbmi25sfa2rda <- data.frame(blbmi=25,saturated_fat.g=32)
+hcp5 <- predict(ipdmdlhc,hcbmi25sfa2rda)
+hcp5
+hcbmi25sfa3rda <- data.frame(blbmi=25,saturated_fat.g=64)
+hcp6 <- predict(ipdmdlhc,hcbmi25sfa3rda)
+hcp6
+
+### BMI=30 ###
+hcbmi30sfarda <- data.frame(blbmi=30,saturated_fat.g=16)
+hcp7 <- predict(ipdmdlhc,hcbmi30sfarda)
+hcp7
+hcbmi30sfa2rda <- data.frame(blbmi=30,saturated_fat.g=32)
+hcp8 <- predict(ipdmdlhc,hcbmi30sfa2rda)
+hcp8
+hcbmi30sfa3rda <- data.frame(blbmi=30,saturated_fat.g=64)
+hcp9 <- predict(ipdmdlhc,hcbmi30sfa3rda)
+hcp9
+
+### BMI=35 ###
+hcbmi35sfarda <- data.frame(blbmi=35,saturated_fat.g=16)
+hcp10 <- predict(ipdmdlhc,hcbmi35sfarda)
+hcp10
+hcbmi35sfa2rda <- data.frame(blbmi=35,saturated_fat.g=32)
+hcp11 <- predict(ipdmdlhc,hcbmi35sfa2rda)
+hcp11
+hcbmi35sfa3rda <- data.frame(blbmi=35,saturated_fat.g=64)
+hcp12 <- predict(ipdmdlhc,hcbmi35sfa3rda)
+hcp12
+
+compiledhc <- data.frame(
+  column1 = c(hcp1,hcp2,hcp3),
+  column2 = c(hcp4, hcp5, hcp6),
+  column3 = c(hcp7,hcp8,hcp9),
+  column4 = c(hcp10,hcp11,hcp12)
+)
+colnames(compiledhc) <- c("BMI=20","BMI=25","BMI=30","BMI=35")
+rownames(compiledhc) <- c("RDA","2xRDA","3xRDA")
+
+compiledhc <- data.frame(
+  BMI = c(20,20,20,25,25,25,30,30,30,35,35,35),
+  SFA = c("RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA","RDA","2xRDA","3xRDA"),
+  LDhchange = c(c(hcp1,hcp2,hcp3,hcp4,hcp5,hcp6,hcp7,hcp8,hcp9,hcp10,hcp11,hcp12))
+)
+
+write.csv(compiledhc,"predictionshc.csv")
+##########################COMPILED FIGURES######################################
+##### Figure 3 #####
+Fig3 <- fig3a|fig3b|fig3c|fig3d
+Fig3
+ggsave("Fig3.BMP", units="cm", width=40, height=10, dpi=600)
+
+##### Supplemental Figure 2 #####
+bmivssatfatqcr <- lm(ldlchange~whocat+qsatfat,data=ipdlc)
+bmivssatfatqwocr <- lm(ldlchange~whocat+qsatfat,data=ipdhc)
+bmivssatfatqcrwadj <- lm(ldlchange~whocat+qsatfat+wch,data=ipdlc)
+bmivssatfatqwocrwadj <- lm(ldlchange~whocat+qsatfat+wch,data=ipdhc)
+
+supfig2a <- ggcoefstats(bmivssatfatqcr,
+                        output = "plot",
+                        exclude.intercept = T,
+                        effsize = "beta", 
+                        stats.labels = T,
+                        bf.message = F,
+                        caption = F,
+                        title = "A) With Carbohydrate Restriction",
+                        point.args = list(color = "gray", size = 5, shape = 15),
+                        stats.label.color = "black",
+)+ggplot2::labs(x = "Effect size (\u03B2)", y = "Predictor")+
+  ggplot2::scale_y_discrete(labels = c("Healthy BMI","Overweight BMI","Class 2 Obesity",
+                                       "SatFat Q2","SatFat Q3","SatFat Q4",
+                                       "Weight change"))+
+  ggplot2::scale_x_continuous(
+    limits = c(-30,65),
+    breaks = seq(-30, 65, by= 10))+
+  ggplot2::theme(plot.title.position = "plot",
+                 axis.title.y = element_text(margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(margin = margin(t=0.5,unit="cm")))
+
+supfig2a
+
+supfig2b <- ggcoefstats(bmivssatfatqwocr,
+                  output = "plot",
+                  exclude.intercept = T,
+                  effsize = "beta", 
+                  stats.labels = T,
+                  bf.message = F,
+                  caption = F,
+                  title = "B) Without Carbohydrate Restriction",
+                  point.args = list(color = "gray", size = 5, shape = 15),
+                  stats.label.color = "black",
+)+ggplot2::labs(x = "Effect size (\u03B2)", y = "Predictor")+
+  ggplot2::scale_y_discrete(labels = c("Healthy BMI","Overweight BMI","Class 2 Obesity",
+                                       "SatFat Q2","SatFat Q3","SatFat Q4",
+                                       "Weight change"))+
+  ggplot2::scale_x_continuous(
+  limits = c(-30,65),
+  breaks = seq(-30, 65, by= 10))+
+  ggplot2::theme(plot.title.position = "plot",
+                 axis.title.y = element_text(margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(margin = margin(t=0.5,unit="cm")))
+
+supfig2b
+
+supfig2c <- ggcoefstats(bmivssatfatqcrwadj,
+                        output = "plot",
+                        exclude.intercept = T,
+                        effsize = "beta", 
+                        stats.labels = T,
+                        bf.message = F,
+                        caption = F,
+                        title = "A) With Carbohydrate Restriction",
+                        point.args = list(color = "gray", size = 5, shape = 15),
+                        stats.label.color = "black",
+)+ggplot2::labs(x = "Effect size (\u03B2)", y = "Predictor")+
+  ggplot2::scale_y_discrete(labels = c("Healthy BMI","Overweight BMI","Class 2 Obesity",
+                                       "SatFat Q2","SatFat Q3","SatFat Q4",
+                                       "Weight change"))+
+  ggplot2::scale_x_continuous(
+    limits = c(-30,65),
+    breaks = seq(-30, 65, by= 10))+
+  ggplot2::theme(plot.title.position = "plot",
+                 axis.title.y = element_text(margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(margin = margin(t=0.5,unit="cm")))
+
+supfig2c
+
+supfig2d <- ggcoefstats(bmivssatfatqwocrwadj,
+                        output = "plot",
+                        exclude.intercept = T,
+                        effsize = "beta", 
+                        stats.labels = T,
+                        bf.message = F,
+                        caption = F,
+                        title = "B) Without Carbohydrate Restriction",
+                        point.args = list(color = "gray", size = 5, shape = 15),
+                        stats.label.color = "black",
+)+ggplot2::labs(x = "Effect size (\u03B2)", y = "Predictor")+
+  ggplot2::scale_y_discrete(labels = c("Healthy BMI","Overweight BMI","Class 2 Obesity",
+                                       "SatFat Q2","SatFat Q3","SatFat Q4",
+                                       "Weight change"))+
+  ggplot2::scale_x_continuous(
+    limits = c(-30,65),
+    breaks = seq(-30, 65, by= 10))+
+  ggplot2::theme(plot.title.position = "plot",
+                 axis.title.y = element_text(margin = margin(r=0.5,unit="cm")),
+                 axis.title.x = element_text(margin = margin(t=0.5,unit="cm")))
+
+supfig2d
+
+SupFig2 <- supfig2a/supfig2b
+SupFig2
+ggsave("SupFig2.BMP", units="cm", width=30, height=30, dpi=600)
+
+################################################################################
+################################################################################
+################################################################################
